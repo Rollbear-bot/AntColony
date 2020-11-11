@@ -3,7 +3,6 @@
 # @Author: Rollbear
 # @Filename: antColony.py
 
-import pandas as pd
 import numpy as np
 import random
 
@@ -24,7 +23,8 @@ class AntColony:
         self.tau = None  # 信息素表
         self.paths = None  # 路径长度表（邻接表）
         self.ant_tract = None  # 记录蚂蚁走过的路径
-        self.total_shortest = None  # 全局最短路径
+        # self.global_shortest = None  # 全局最短路径
+        self.iter_shortest = []  # 记录每轮迭代的局部最优路径
 
     def run(self, adj_mat, debug=False):
         self.paths = np.array(adj_mat)
@@ -44,6 +44,8 @@ class AntColony:
     def run_iter(self, debug):
         # 为每只蚂蚁随机选取出发城市
         ant_cur_cities = random.choices(range(len(self.paths)), k=self.m)
+        # 保存蚂蚁的出发城市，在遍历其他城市后需要回来
+        ant_start_cities = ant_cur_cities.copy()
         if debug:
             self.print_title("Set Off City")
             for i_ant, city in enumerate(ant_cur_cities):
@@ -62,7 +64,7 @@ class AntColony:
                 # 计算每个允许前往的城市的路径权重
                 city_weight = {}
                 avail_cities = [i_city for i_city, _ in enumerate(self.paths[cur_city])
-                                if i_city not in self.taboo[i_ant]]
+                                if i_city not in self.taboo.get(i_ant, [])]
                 if len(avail_cities) == 0:
                     end = True
                     break
@@ -84,8 +86,22 @@ class AntColony:
                     self.print_title("Ant Report")
                     print(f"Ant {i_ant}: {city_weight}")
                     print(f"next city: {next_city}")
-        # 本轮迭代结束，更新信息素
-        self.update_tau(debug)
+
+        # 每只蚂蚁回到出发的城市
+        for i_ant in range(self.m):
+            cur_city = ant_cur_cities[i_ant]
+            next_city = ant_start_cities[i_ant]
+            self.ant_tract[i_ant].append((cur_city, next_city))
+
+            if debug:
+                self.print_title("Ant Report")
+                print(f"Ant {i_ant}: back to start city.")
+                print(f"next city: {next_city}")
+
+        # 本轮迭代结束，更新信息素，并计算本次迭代的局部最优
+        local_shortest = self.update_tau(debug)
+        # 存储本轮迭代的局部最优路径
+        self.iter_shortest.append(local_shortest)
 
     def alg_init(self, debug):
         """初始化信息素：首先使用贪婪法计算次短路径信息素"""
@@ -111,6 +127,8 @@ class AntColony:
             path_length += self.paths[cur_city, next_city]
             cur_city = next_city
 
+        path_length += self.paths[cur_city, 0]
+
         tau_0 = self.m / path_length  # 使用贪婪最短路径计算初始信息素浓度
         if debug:
             print()
@@ -118,15 +136,15 @@ class AntColony:
         self.tau[:, :] = tau_0  # 所有路径上的信息素浓度初始化为tau0
 
     def update_tau(self, debug):
-        """更新信息素"""
-        # ant_path_length = {}
+        """更新信息素，并返回本次迭代的局部最优路径"""
+        ant_path_length = []
         ant_delta_tau = {}  # 存储每只蚂蚁对每条路径的信息素增量
 
         # 计算每只蚂蚁在一轮迭代中走过的路径长度，计算信息素更新量
         for i_ant, tracts in self.ant_tract.items():
-            # ant_path_length[i_ant] = sum([self.paths[tract[0], tract[1]] for tract in tracts])
             # 计算蚂蚁在这次迭代走过的路径长
             path_length = sum([self.paths[tract[0], tract[1]] for tract in tracts])
+            ant_path_length.append(path_length)
             # 信息素增量等于蚂蚁这次迭代走过的路径长的倒数
             delta_tau = {(i, j): 1 / path_length for i, j in tracts}
 
@@ -138,6 +156,8 @@ class AntColony:
                 # 计算所有蚂蚁对这条边的更新量
                 delta_sum = sum([delta.get((i, j), 0) for delta in ant_delta_tau.values()])
                 self.tau[i, j] = (1 - self.rho) * self.tau[i, j] + delta_sum
+        # 返回局部最优路径
+        return min(ant_path_length)
 
     def eta(self, i, j):
         """以路径距离的倒数作为η（课本方法）"""
