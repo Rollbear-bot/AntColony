@@ -15,7 +15,7 @@ class Roulette:
     def roll(self):
         hit = None
         volume = sum(self.weight_lt)
-        key = random.randrange(0, volume)
+        key = random.random() * volume
         for i, sample in enumerate(self.weight_lt):
             if sum(self.weight_lt[:i + 1]) >= key:
                 hit = i

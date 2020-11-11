@@ -38,12 +38,12 @@ class AntColony:
             self.taboo = {}
             self.ant_tract = {}
             if debug:
-                print("="*10 + f"iter {i_iter+1}" + "="*10)
+                print("=" * 10 + f"iter {i_iter + 1}" + "=" * 10)
             self.run_iter(debug)
 
     def run_iter(self, debug):
         # 为每只蚂蚁随机选取出发城市
-        ant_cur_cities = random.choices(range(len(self.paths)), self.m)
+        ant_cur_cities = random.choices(range(len(self.paths)), k=self.m)
         if debug:
             self.print_title("Set Off City")
             for i_ant, city in enumerate(ant_cur_cities):
@@ -97,18 +97,24 @@ class AntColony:
         if debug:
             self.print_title("Alg Init")
             print("Greedy Path:", end=" ")
-        while len(greed_taboo) < len(self.paths):
+
+        while True:
+            greed_taboo.append(cur_city)  # 走过的城市加入禁忌表（局部变量）
             if debug:
                 print(cur_city, end=" ")
-            next_city = min([elem for elem in self.paths[cur_city] if elem not in greed_taboo])
+            next_city_cluster = sorted([(i, elem) for i, elem in enumerate(self.paths[cur_city])
+                                        if i not in greed_taboo], key=lambda item: item[1])
+            if len(next_city_cluster) == 0:
+                break
+            next_city = sorted([(i, elem) for i, elem in enumerate(self.paths[cur_city])
+                                if i not in greed_taboo], key=lambda item: item[1])[0][0]
             path_length += self.paths[cur_city, next_city]
-            greed_taboo.append(next_city)  # 走过的城市加入禁忌表（局部变量）
             cur_city = next_city
 
         tau_0 = self.m / path_length  # 使用贪婪最短路径计算初始信息素浓度
         if debug:
             print()
-            print(u"τ0: " + tau_0)
+            print(f"τ0: {tau_0}")
         self.tau[:, :] = tau_0  # 所有路径上的信息素浓度初始化为tau0
 
     def update_tau(self, debug):
@@ -139,8 +145,8 @@ class AntColony:
 
     def probability(self, cur_city, target_city):
         """计算蚂蚁从城市A前往城市B的概率"""
-        return (self.tau[cur_city, target_city] ^ self.alpha) * \
-               (self.eta(cur_city, target_city) ^ self.beta)
+        return (self.tau[cur_city, target_city] ** self.alpha) * \
+               (self.eta(cur_city, target_city) ** self.beta)
 
     @staticmethod
     def print_title(message):
