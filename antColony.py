@@ -38,7 +38,7 @@ class AntColony:
             self.taboo = {}
             self.ant_tract = {}
             if debug:
-                print("=" * 10 + f"iter {i_iter + 1}" + "=" * 10)
+                print("\n" + "=" * 10 + f"iter {i_iter + 1}" + "=" * 10)
             self.run_iter(debug)
 
     def run_iter(self, debug):
@@ -137,6 +137,9 @@ class AntColony:
 
     def update_tau(self, debug):
         """更新信息素，并返回本次迭代的局部最优路径"""
+        if debug:
+            self.print_title("Updating tau")
+
         ant_path_length = []
         ant_delta_tau = {}  # 存储每只蚂蚁对每条路径的信息素增量
 
@@ -144,6 +147,8 @@ class AntColony:
         for i_ant, tracts in self.ant_tract.items():
             # 计算蚂蚁在这次迭代走过的路径长
             path_length = sum([self.paths[tract[0], tract[1]] for tract in tracts])
+            if debug:
+                print(f"Ant {i_ant} path length: {path_length}")
             ant_path_length.append(path_length)
             # 信息素增量等于蚂蚁这次迭代走过的路径长的倒数
             delta_tau = {(i, j): 1 / path_length for i, j in tracts}
@@ -156,6 +161,11 @@ class AntColony:
                 # 计算所有蚂蚁对这条边的更新量
                 delta_sum = sum([delta.get((i, j), 0) for delta in ant_delta_tau.values()])
                 self.tau[i, j] = (1 - self.rho) * self.tau[i, j] + delta_sum
+
+        if debug:
+            print("tau:")
+            print(self.tau)
+
         # 返回局部最优路径
         return min(ant_path_length)
 
